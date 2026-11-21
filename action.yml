@@ -1,0 +1,132 @@
+# agentest GitHub Action: install agentest-ai from PyPI and run agentic evals on your agent's
+# OpenTelemetry traces. Offline: no model calls, no API keys, no secrets.
+# Source of agentest: https://github.com/srpadmanabhuni/agentest
+name: "agentest agentic evals"
+description: "Run agentest (agentest-ai on PyPI) on OpenTelemetry agent traces: 165 tests of what the agent actually did. Offline, no API keys."
+author: "Dr Srinivas Padmanabhuni"
+branding:
+  icon: "check-circle"
+  color: "blue"
+
+inputs:
+  otlp:
+    description: "OTLP trace files or glob patterns (OTLP/JSON .json/.jsonl, OTLP/protobuf .pb), separated by spaces or new lines. Leave empty to judge agent folders instead (see `agents`)."
+    required: false
+    default: ""
+  card:
+    description: "With `otlp`: optional A2A AgentCard JSON file."
+    required: false
+    default: ""
+  tools:
+    description: "With `otlp`: optional MCP tools/list JSON file."
+    required: false
+    default: ""
+  agents:
+    description: "Without `otlp`: directory of agent folders (each with agent-card.json, tools.json and traces/), relative to the working directory."
+    required: false
+    default: "agents"
+  agent:
+    description: "Without `otlp`: limit the run to one agent folder id."
+    required: false
+    default: ""
+  ids:
+    description: "Limit the report to test IDs or classes, comma-separated (for example T5,T6-002)."
+    required: false
+    default: ""
+  mode:
+    description: "Check mode: `strict` (only standard OTel/A2A/MCP fields) or `examples`. Empty uses the CLI default."
+    required: false
+    default: ""
+  config:
+    description: "Optional YAML/JSON config file (disable IDs, thresholds, rules_dir, scenarios)."
+    required: false
+    default: ""
+  format:
+    description: "Report format: md, json, junit, sarif, html or csv."
+    required: false
+    default: "md"
+  report:
+    description: "Report file path. Empty writes agentest-report.<format extension> in the workspace."
+    required: false
+    default: ""
+  fail-on-fail:
+    description: "Fail the step when any check returns a fail verdict (`agentest std run --strict`). Set to `false` to report only."
+    required: false
+    default: "true"
+  job-summary:
+    description: "Append the run totals (and the report, for format md) to the job summary."
+    required: false
+    default: "true"
+  python-version:
+    description: "Python version to set up (3.11 or later). Set to an empty string to use the Python already on the runner."
+    required: false
+    default: "3.12"
+  version:
+    description: "agentest-ai version to install from PyPI, for example 3.5.2. Empty installs the latest release."
+    required: false
+    default: ""
+  install:
+    description: "Advanced: any pip requirement to install instead of agentest-ai from PyPI, for example `agentest-ai @ git+https://github.com/srpadmanabhuni/agentest@<sha>`. Overrides `version`."
+    required: false
+    default: ""
+
+outputs:
+  exit-code:
+    description: "Exit code of `agentest std run` (0 = no fail verdicts, 1 = at least one fail, other = error)."
+    value: ${{ steps.run.outputs.exit-code }}
+  passed:
+    description: "Number of pass verdicts."
+    value: ${{ steps.run.outputs.passed }}
+  failed:
+    description: "Number of fail verdicts."
+    value: ${{ steps.run.outputs.failed }}
+  not-applicable:
+    description: "Number of n/a verdicts."
+    value: ${{ steps.run.outputs.not-applicable }}
+  report:
+    description: "Path of the report file."
+    value: ${{ steps.run.outputs.report }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      if: inputs.python-version != ''
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install agentest-ai from PyPI
+      shell: bash
+      env:
+        AGENTEST_INSTALL: ${{ inputs.install }}
+        AGENTEST_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        if [ -n "$AGENTEST_INSTALL" ]; then
+          req="$AGENTEST_INSTALL"
+        elif [ -n "$AGENTEST_VERSION" ]; then
+          req="agentest-ai==$AGENTEST_VERSION"
+        else
+          req="agentest-ai"
+        fi
+        python -m pip install --disable-pip-version-check -q "$req"
+        agentest version
+
+    - name: Run agentest
+      id: run
+      shell: bash
+      env:
+        AGENTEST_OTLP: ${{ inputs.otlp }}
+        AGENTEST_CARD: ${{ inputs.card }}
+        AGENTEST_TOOLS: ${{ inputs.tools }}
+        AGENTEST_AGENTS: ${{ inputs.agents }}
+        AGENTEST_AGENT: ${{ inputs.agent }}
+        AGENTEST_IDS: ${{ inputs.ids }}
+        AGENTEST_MODE: ${{ inputs.mode }}
+        AGENTEST_CONFIG: ${{ inputs.config }}
+        AGENTEST_FORMAT: ${{ inputs.format }}
+        AGENTEST_REPORT: ${{ inputs.report }}
+        AGENTEST_FAIL_ON_FAIL: ${{ inputs.fail-on-fail }}
+        AGENTEST_JOB_SUMMARY: ${{ inputs.job-summary }}
+      run: bash "${{ github.action_path }}/scripts/gh_action_run.sh"

@@ -1,0 +1,30 @@
+name: self-test
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  report-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: agentest
+        uses: ./
+        with:
+          otlp: examples/buggy.otlp.jsonl
+          fail-on-fail: "false"
+      - name: The example trace has fail verdicts
+        run: test "${{ steps.agentest.outputs.failed }}" -gt 0
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: agentest
+        uses: ./
+        continue-on-error: true
+        with:
+          otlp: examples/buggy.otlp.jsonl
+      - name: The gate fails the step on fail verdicts
+        run: test "${{ steps.agentest.outputs.exit-code }}" = "1"
