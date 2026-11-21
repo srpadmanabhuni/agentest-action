@@ -2,7 +2,7 @@
 # OpenTelemetry traces. Offline: no model calls, no API keys, no secrets.
 # Source of agentest: https://github.com/srpadmanabhuni/agentest
 name: "agentest agentic evals"
-description: "Run agentest (agentest-ai on PyPI) on OpenTelemetry agent traces: 165 tests of what the agent actually did. Offline, no API keys."
+description: "Agentic evals in CI: run agentest's 165 tests on your AI agent's OpenTelemetry traces"
 author: "Dr Srinivas Padmanabhuni"
 branding:
   icon: "check-circle"
